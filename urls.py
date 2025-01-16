@@ -19,7 +19,6 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path('auth/', views.auth_request, name='auth_request'),
     path('token/', views.MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', views.TokenRefreshView.as_view(), name='token_refresh'),

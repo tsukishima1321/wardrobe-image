@@ -3,7 +3,7 @@ from django.http import HttpResponseNotFound
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from . import settings
+from django.conf import settings
 from PIL import Image
 import os
 import hashlib
