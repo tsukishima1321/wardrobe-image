@@ -50,6 +50,8 @@ def genarate_thumbnail(request, imageName):
             return HttpResponse(f.read(), content_type='image/jpeg')
     try:
         image = Image.open(imagePath)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
         if image.width < 400:
             pass
         else:
