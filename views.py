@@ -7,19 +7,71 @@ from django.conf import settings
 from PIL import Image
 import os
 import hashlib
+from django_ratelimit.decorators import ratelimit
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def auth_request(request):
     return HttpResponse(status=status.HTTP_200_OK)
 
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # 获取用户IP地址
+        request = self.context['request']
+        user_ip = request.META.get('REMOTE_ADDR')
+        # 将IP地址添加到token中
+        refresh = self.get_token(self.user)
+        refresh['ip'] = user_ip
+        data['refresh'] = str(refresh)
+        data['access'] = str(refresh.access_token)
+        return data
+    
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        refresh = RefreshToken(attrs['refresh'])
+
+        # 获取用户IP地址
+        request = self.context['request']
+        user_ip = request.META.get('REMOTE_ADDR')
+
+        # 验证IP地址
+        if refresh['ip'] != user_ip:
+            raise serializers.ValidationError(_('IP address does not match'))
+
+        data = {'access': str(refresh.access_token)}
+
+        if api_settings.ROTATE_REFRESH_TOKENS:
+            if api_settings.BLACKLIST_AFTER_ROTATION:
+                try:
+                    # Attempt to blacklist the given refresh token
+                    refresh.blacklist()
+                except AttributeError:
+                    # If blacklist app not installed, `blacklist` method will
+                    # not be present
+                    pass
+
+            refresh.set_jti()
+            refresh.set_exp()
+            data['refresh'] = str(refresh)
+
+        return data
+
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
     pass
 
 class TokenRefreshView(TokenRefreshView):
+    serializer_class = CustomTokenRefreshSerializer
     pass
 
 @api_view(['POST'])
