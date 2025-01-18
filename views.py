@@ -8,6 +8,7 @@ from PIL import Image
 import os
 import hashlib
 from django_ratelimit.decorators import ratelimit
+import json
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -82,12 +83,13 @@ def upload_image(request):
         if image is None:
             return HttpResponse('No image provided', status=400)
         # Generate a unique name for the image by md5
-        image.name = hashlib.md5(image.read()).hexdigest() + "." + image.name.split('.')[-1]
+        name = hashlib.md5(image.read()).hexdigest() + "." + image.name.split('.')[-1]
+        image.name = name
         imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + image.name)
         with open(imagePath, 'wb') as f:
             for chunk in image.chunks():
                 f.write(chunk)
-        return HttpResponse('Image uploaded', status=201)
+        return HttpResponse(json.dumps({'name': name}), content_type='application/json')
     return HttpResponse('Method not allowed', status=405)
 
 @api_view(['GET'])
