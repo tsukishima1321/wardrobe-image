@@ -86,6 +86,8 @@ def upload_image(request):
         name = hashlib.md5(image.read()).hexdigest() + "." + image.name.split('.')[-1]
         image.name = name
         imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + image.name)
+        if os.path.exists(imagePath):
+            return HttpResponse('Image already exists', status=400)
         with open(imagePath, 'wb') as f:
             for chunk in image.chunks():
                 f.write(chunk)

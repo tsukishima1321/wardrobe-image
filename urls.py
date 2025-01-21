@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import path
 from . import views
 
+app_name = 'wardrobe_image'
+
 urlpatterns = [
     path('auth/', views.auth_request, name='auth_request'),
     path('token/', views.MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
