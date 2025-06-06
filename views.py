@@ -94,6 +94,28 @@ def upload_image(request):
         return HttpResponse(json.dumps({'name': name}), content_type='application/json')
     return HttpResponse('Method not allowed', status=405)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_image(request):
+    if request.method == 'POST':
+        print(request.data)
+        imageName = request.data.get('imageName')
+        if not imageName:
+            return HttpResponse('No image name provided', status=400)
+        imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + imageName)
+        if not os.path.exists(imagePath):
+            return HttpResponse('Image not found', status=404)
+        try:
+            os.remove(imagePath)
+            thumbnailPath = os.path.join(settings.THUMBNAILS_STORAGE_PATH + imageName)
+            if os.path.exists(thumbnailPath):
+                os.remove(thumbnailPath)
+            return HttpResponse('Image deleted successfully', status=200)
+        except Exception as e:
+            return HttpResponse(f'Error deleting image: {str(e)}', status=500)
+    return HttpResponse('Method not allowed', status=405)
+    
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def genarate_thumbnail(request, imageName):
