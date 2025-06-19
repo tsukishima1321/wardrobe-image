@@ -21,6 +21,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
+import logging
+
+logger = logging.getLogger('imagebed')
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
@@ -91,6 +95,7 @@ def upload_image(request):
         with open(imagePath, 'wb') as f:
             for chunk in image.chunks():
                 f.write(chunk)
+        logger.info(f"Image {name} uploaded successfully")
         return HttpResponse(json.dumps({'name': name}), content_type='application/json')
     return HttpResponse('Method not allowed', status=405)
 
@@ -98,7 +103,7 @@ def upload_image(request):
 @permission_classes([IsAuthenticated])
 def delete_image(request):
     if request.method == 'POST':
-        print(request.data)
+        logger.info(f"Delete image request: {request.data}")
         imageName = request.data.get('imageName')
         if not imageName:
             return HttpResponse('No image name provided', status=400)
@@ -107,6 +112,7 @@ def delete_image(request):
             return HttpResponse('Image not found', status=404)
         try:
             os.remove(imagePath)
+            logger.info(f"Image {imageName} deleted successfully")
             thumbnailPath = os.path.join(settings.THUMBNAILS_STORAGE_PATH + imageName)
             if os.path.exists(thumbnailPath):
                 os.remove(thumbnailPath)
