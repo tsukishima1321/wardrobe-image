@@ -87,16 +87,16 @@ def upload_image(request):
         if image is None:
             return HttpResponse('No image provided', status=400)
         # Generate a unique name for the image by md5
-        name = hashlib.md5(image.read()).hexdigest() + "." + image.name.split('.')[-1]
-        image.name = name
-        imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + image.name)
+        md5 = hashlib.md5(image.read()).hexdigest() + "." + image.name.split('.')[-1]
+        image.md5 = md5
+        imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + image.md5)
         if os.path.exists(imagePath):
-            return HttpResponse('Image already exists', status=400)
+            return HttpResponse(json.dumps({'md5': md5, 'message': 'Image already exists'}), status=400)
         with open(imagePath, 'wb') as f:
             for chunk in image.chunks():
                 f.write(chunk)
-        logger.info(f"Image {name} uploaded successfully")
-        return HttpResponse(json.dumps({'name': name}), content_type='application/json')
+        logger.info(f"Image {md5} uploaded successfully")
+        return HttpResponse(json.dumps({'md5': md5}), content_type='application/json')
     return HttpResponse('Method not allowed', status=405)
 
 @api_view(['POST'])
