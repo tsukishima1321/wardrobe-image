@@ -110,9 +110,12 @@ def delete_image(request: HttpRequest) -> HttpResponse:
     try:
         os.remove(imagePath)
         logger.info(f"Image {imageName} deleted successfully")
-        thumbnailPath = os.path.join(settings.THUMBNAILS_STORAGE_PATH + imageName)
-        if os.path.exists(thumbnailPath):
-            os.remove(thumbnailPath)
+        for thumb_dir in [settings.THUMBNAILS_STORAGE_PATH,
+                          settings.THUMBNAILS_MEDIUM_STORAGE_PATH,
+                          settings.THUMBNAILS_SMALL_STORAGE_PATH]:
+            thumbPath = os.path.join(thumb_dir + imageName + '.avif')
+            if os.path.exists(thumbPath):
+                os.remove(thumbPath)
         return HttpResponse('Image deleted successfully', status=200)
     except Exception as e:
         return HttpResponse(f'Error deleting image: {str(e)}', status=500)
@@ -124,24 +127,73 @@ def genarate_thumbnail(request: HttpRequest, imageName: str) -> HttpResponse:
     imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + imageName)
     if not os.path.exists(imagePath):
         return HttpResponseNotFound('Image not found')
-    thumbnailPath = os.path.join(settings.THUMBNAILS_STORAGE_PATH + imageName)
+    thumbnailPath = os.path.join(settings.THUMBNAILS_STORAGE_PATH + imageName + '.avif')
     if os.path.exists(thumbnailPath):
         with open(thumbnailPath, 'rb') as f:
-            return HttpResponse(f.read(), content_type='image/jpeg')
+            return HttpResponse(f.read(), content_type='image/avif')
     try:
         image = Image.open(imagePath)
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        if image.width < 400:
+        if image.width < 512:
             pass
         else:
-            w_percent = 400 / float(image.width)
+            w_percent = 512 / float(image.width)
             h_size = int(float(image.height) * w_percent)
-            image = image.resize((400, h_size))
+            image = image.resize((512, h_size))
         os.makedirs(os.path.dirname(thumbnailPath), exist_ok=True)
-        image.save(thumbnailPath, 'JPEG')
+        image.save(thumbnailPath, 'AVIF')
         with open(thumbnailPath, 'rb') as f:
-            return HttpResponse(f.read(), content_type='image/jpeg')
+            return HttpResponse(f.read(), content_type='image/avif')
     except Exception as e:
         return HttpResponse(f'Error processing image: {str(e)}', status=500)
     return HttpResponse(status=status.HTTP_200_OK)
+
+
+def _generate_square_thumbnail(imagePath: str, thumbPath: str, size: int) -> None:
+    image = Image.open(imagePath)
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    min_dim = min(image.width, image.height)
+    left = (image.width - min_dim) // 2
+    top = (image.height - min_dim) // 2
+    image = image.crop((left, top, left + min_dim, top + min_dim))
+    image = image.resize((size, size), Image.LANCZOS)
+    os.makedirs(os.path.dirname(thumbPath), exist_ok=True)
+    image.save(thumbPath, 'AVIF')
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_medium_thumbnail(request: HttpRequest, imageName: str) -> HttpResponse:
+    imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + imageName)
+    if not os.path.exists(imagePath):
+        return HttpResponseNotFound('Image not found')
+    thumbPath = os.path.join(settings.THUMBNAILS_MEDIUM_STORAGE_PATH + imageName + '.avif')
+    if os.path.exists(thumbPath):
+        with open(thumbPath, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/avif')
+    try:
+        _generate_square_thumbnail(imagePath, thumbPath, 360)
+        with open(thumbPath, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/avif')
+    except Exception as e:
+        return HttpResponse(f'Error processing image: {str(e)}', status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_small_thumbnail(request: HttpRequest, imageName: str) -> HttpResponse:
+    imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + imageName)
+    if not os.path.exists(imagePath):
+        return HttpResponseNotFound('Image not found')
+    thumbPath = os.path.join(settings.THUMBNAILS_SMALL_STORAGE_PATH + imageName + '.avif')
+    if os.path.exists(thumbPath):
+        with open(thumbPath, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/avif')
+    try:
+        _generate_square_thumbnail(imagePath, thumbPath, 128)
+        with open(thumbPath, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/avif')
+    except Exception as e:
+        return HttpResponse(f'Error processing image: {str(e)}', status=500)
