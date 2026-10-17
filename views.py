@@ -142,7 +142,8 @@ def delete_image(request: HttpRequest) -> HttpResponse:
         logger.info(f"Image {imageName} deleted successfully")
         for thumb_dir in [settings.THUMBNAILS_STORAGE_PATH,
                           settings.THUMBNAILS_MEDIUM_STORAGE_PATH,
-                          settings.THUMBNAILS_SMALL_STORAGE_PATH]:
+                          settings.THUMBNAILS_SMALL_STORAGE_PATH,
+                          settings.THUMBNAILS_LARGE_STORAGE_PATH]:
             thumbPath = os.path.join(thumb_dir + imageName + '.avif')
             if os.path.exists(thumbPath):
                 os.remove(thumbPath)
@@ -178,6 +179,33 @@ def genarate_thumbnail(request: HttpRequest, imageName: str) -> HttpResponse:
     except Exception as e:
         return HttpResponse(f'Error processing image: {str(e)}', status=500)
     return HttpResponse(status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def generate_large_thumbnail(request: HttpRequest, imageName: str) -> HttpResponse:
+    imagePath = os.path.join(settings.IMAGE_STORAGE_PATH + imageName)
+    if not os.path.exists(imagePath):
+        return HttpResponseNotFound('Image not found')
+    thumbPath = os.path.join(settings.THUMBNAILS_LARGE_STORAGE_PATH + imageName + '.avif')
+    if os.path.exists(thumbPath):
+        with open(thumbPath, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/avif')
+    try:
+        image = Image.open(imagePath)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        if image.width > 1280:
+            w_percent = 1280 / float(image.width)
+            h_size = int(float(image.height) * w_percent)
+            image = image.resize((1280, h_size))
+        os.makedirs(os.path.dirname(thumbPath), exist_ok=True)
+        image.save(thumbPath, 'AVIF')
+        with open(thumbPath, 'rb') as f:
+            return HttpResponse(f.read(), content_type='image/avif')
+    except Exception as e:
+        return HttpResponse(f'Error processing image: {str(e)}', status=500)
 
 
 def _generate_square_thumbnail(imagePath: str, thumbPath: str, size: int) -> None:
