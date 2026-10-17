@@ -15,6 +15,22 @@ import logging
 
 logger = logging.getLogger('imagebed')
 
+IMAGE_AUTH_COOKIE = 'wardrobe_image_token'
+
+
+def _set_image_auth_cookie(response: HttpResponse, access_token: str) -> HttpResponse:
+    max_age = int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds())
+    response.set_cookie(
+        IMAGE_AUTH_COOKIE,
+        access_token,
+        max_age=max_age,
+        httponly=True,
+        secure=True,
+        samesite='Strict',
+        path='/imagebed/',
+    )
+    return response
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -74,9 +90,23 @@ from rest_framework_simplejwt.views import TokenRefreshView
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        access_token = response.data.get('access')
+        if access_token:
+            _set_image_auth_cookie(response, access_token)
+        return response
+
 
 class TokenRefreshView(TokenRefreshView):
     serializer_class = CustomTokenRefreshSerializer
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        access_token = response.data.get('access')
+        if access_token:
+            _set_image_auth_cookie(response, access_token)
+        return response
 
 
 @api_view(['POST'])
